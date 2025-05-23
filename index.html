@@ -9,6 +9,57 @@
         padding-bottom: 3rem;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
           Helvetica, Arial, sans-serif;
+        position: relative;
+      }
+      .userModal {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.85);
+        backdrop-filter: blur(8px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        flex-direction: column;
+        gap: 1rem;
+      }
+
+      .userModal h2 {
+        color: #fff;
+        font-size: 1.5rem;
+        margin: 0;
+      }
+
+      .userModal input {
+        width: 80%;
+        max-width: 300px;
+        padding: 0.75rem 1rem;
+        border: none;
+        border-radius: 999px;
+        font-size: 1rem;
+        text-align: center;
+      }
+
+      .userModal input:focus {
+        outline: 2px solid #38bdf8;
+        background: #fff;
+      }
+
+      .userModal button {
+        background: linear-gradient(45deg, #6366f1, #9333ea);
+        color: white;
+        border: none;
+        border-radius: 999px;
+        padding: 0.75rem 2rem;
+        font-weight: bold;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+      }
+
+      .userModal button:hover {
+        transform: scale(1.05);
+        box-shadow: 0 0 20px #9333ea66;
       }
 
       #form {
@@ -57,6 +108,11 @@
     </style>
   </head>
   <body>
+    <form class="userModal">
+      <h2>Se identifique, usuário!</h2>
+      <input type="text" id="username" placeholder="Digite seu nome" />
+      <button type="submit" id="submitButton">Entrar</button>
+    </form>
     <ul id="messages"></ul>
     <form id="form" action="">
       <input
@@ -71,23 +127,54 @@
         auth: {
           serverOffset: 0,
         },
+        autoConnect: false,
       });
 
       const form = document.getElementById("form");
       const input = document.getElementById("input");
       const messages = document.getElementById("messages");
+      const userModal = document.querySelector(".userModal");
+      const usernameInput = document.getElementById("username");
+
+      userModal.addEventListener("submit", (e) => {
+        e.preventDefault();
+        if (usernameInput.value) {
+          fetch("/register", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ name: usernameInput.value }),
+          })
+            .then((res) => res.json())
+            .then((data) => {
+              if (data?.id) {
+                localStorage.setItem("user", data.id);
+                localStorage.setItem("username", usernameInput.value);
+                userModal.style.display = "none";
+
+                socket.connect();
+              }
+            })
+            .catch((error) => console.error("Erro ao registrar:", error));
+        }
+      });
 
       form.addEventListener("submit", (e) => {
         e.preventDefault();
         if (input.value) {
-          socket.emit("chat message", input.value);
+          socket.emit(
+            "chat message",
+            input.value,
+            localStorage.getItem("user")
+          );
           input.value = "";
         }
       });
 
-      socket.on("chat message", (msg, serverOffset) => {
+      socket.on("chat message", (msg, username, serverOffset) => {
         const item = document.createElement("li");
-        item.textContent = msg;
+        item.textContent = `${username}: ${msg}`;
         messages.appendChild(item);
         window.scrollTo(0, document.body.scrollHeight);
         socket.auth.serverOffset = serverOffset;
