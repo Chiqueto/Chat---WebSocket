@@ -105,6 +105,35 @@
       #messages > li:nth-child(odd) {
         background: #efefef;
       }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .userModal button.loading {
+        color: transparent;
+        position: relative;
+        cursor: wait;
+      }
+
+      .userModal button.loading::after {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        margin-top: -12px;
+        margin-left: -12px;
+
+        width: 24px;
+        height: 24px;
+        border: 3px solid rgba(255, 255, 255, 0.5);
+        border-top-color: #fff;
+        border-radius: 50%;
+
+        animation: spin 0.8s linear infinite;
+      }
     </style>
   </head>
   <body>
@@ -136,9 +165,16 @@
       const userModal = document.querySelector(".userModal");
       const usernameInput = document.getElementById("username");
 
+      // --- PASSO 1: Pegue a referência do botão ---
+      const submitButton = document.getElementById("submitButton");
+
       userModal.addEventListener("submit", (e) => {
         e.preventDefault();
         if (usernameInput.value) {
+          // --- PASSO 2: Inicie o estado de loading ---
+          submitButton.disabled = true; // Desabilita o botão
+          submitButton.classList.add("loading"); // Adiciona a classe para mostrar o spinner
+
           fetch("/register", {
             method: "POST",
             headers: {
@@ -152,14 +188,19 @@
                 localStorage.setItem("user", data.id);
                 localStorage.setItem("username", usernameInput.value);
                 userModal.style.display = "none";
-
                 socket.connect();
               }
             })
-            .catch((error) => console.error("Erro ao registrar:", error));
+            .catch((error) => console.error("Erro ao registrar:", error))
+            // --- PASSO 3: Finalize o estado de loading (sempre executa) ---
+            .finally(() => {
+              submitButton.disabled = false; // Habilita o botão novamente
+              submitButton.classList.remove("loading"); // Remove a classe e o spinner
+            });
         }
       });
 
+      // O resto do seu código continua igual...
       form.addEventListener("submit", (e) => {
         e.preventDefault();
         if (input.value) {
