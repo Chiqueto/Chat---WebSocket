@@ -165,15 +165,14 @@
       const userModal = document.querySelector(".userModal");
       const usernameInput = document.getElementById("username");
 
-      // --- PASSO 1: Pegue a referência do botão ---
       const submitButton = document.getElementById("submitButton");
 
       userModal.addEventListener("submit", (e) => {
         e.preventDefault();
         if (usernameInput.value) {
-          // --- PASSO 2: Inicie o estado de loading ---
-          submitButton.disabled = true; // Desabilita o botão
-          submitButton.classList.add("loading"); // Adiciona a classe para mostrar o spinner
+         
+          submitButton.disabled = true; 
+          submitButton.classList.add("loading"); 
 
           fetch("/register", {
             method: "POST",
@@ -192,15 +191,14 @@
               }
             })
             .catch((error) => console.error("Erro ao registrar:", error))
-            // --- PASSO 3: Finalize o estado de loading (sempre executa) ---
+            
             .finally(() => {
-              submitButton.disabled = false; // Habilita o botão novamente
-              submitButton.classList.remove("loading"); // Remove a classe e o spinner
+              submitButton.disabled = false; 
+              submitButton.classList.remove("loading"); 
             });
         }
       });
 
-      // O resto do seu código continua igual...
       form.addEventListener("submit", (e) => {
         e.preventDefault();
         if (input.value) {
