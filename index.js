@@ -5,10 +5,12 @@ import { dirname, join } from "node:path";
 import { Server } from "socket.io";
 import sqlite3 from "sqlite3";
 import { open } from "sqlite";
+import dotenv from "dotenv";
 
-// open the database file
+dotenv.config();
+
 const db = await open({
-  filename: "chat.db",
+  filename: process.env.DB_FILENAME || "chat.db",
   driver: sqlite3.Database,
 });
 
@@ -19,7 +21,6 @@ await db.exec(`
   );
 `);
 
-// create our 'messages' table (you can ignore the 'client_offset' column for now)
 await db.exec(`
   CREATE TABLE IF NOT EXISTS messages (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -53,25 +54,21 @@ app.post("/register", async (req, res) => {
   return res.status(201).json({ id: result.lastID, name });
 });
 
-// this will emit the event to all connected sockets
 io.emit("hello", "world");
 
 io.on("connection", async (socket) => {
   socket.on("chat message", async (msg, userId) => {
     let result;
     try {
-      // store the message in the database
       result = await db.run(
         "INSERT INTO messages (content, id_user) VALUES (?, ?)",
         msg,
         userId
       );
     } catch (e) {
-      // TODO handle the failure
       console.error("failed to store message", e);
       return;
     }
-    // include the offset with the message
     const row = await db.get(
       `SELECT messages.id, messages.content, users.name 
    FROM messages 
@@ -84,7 +81,6 @@ io.on("connection", async (socket) => {
   });
 
   if (!socket.recovered) {
-    // if the connection state recovery was not successful
     try {
       await db.each(
         `SELECT messages.id, messages.content, users.name 
@@ -96,12 +92,12 @@ io.on("connection", async (socket) => {
           socket.emit("chat message", row.content, row.name, row.id);
         }
       );
-    } catch (e) {
-      // something went wrong
-    }
+    } catch (e) {}
   }
 });
 
-server.listen(3000, () => {
-  console.log("server running at http://localhost:3000");
+const port = process.env.PORT || 3000;
+
+server.listen(port, () => {
+  console.log(`server running at http://localhost:${port}`);
 });
