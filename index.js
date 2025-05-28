@@ -6,30 +6,33 @@ import { Server } from "socket.io";
 import sqlite3 from "sqlite3";
 import { open } from "sqlite";
 import dotenv from "dotenv";
+import pg from "pg";
 
 dotenv.config();
 
-const db = await open({
-  filename: process.env.DB_FILENAME || "chat.db",
-  driver: sqlite3.Database,
+const db = await pg.Pool({
+  connectionString: process.env.DATABASE_URL,
 });
 
-await db.exec(`
-  CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT
-  );
-`);
+const setupDatabase = async () => {
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS users (
+          id SERIAL PRIMARY KEY,
+          name TEXT
+    );
+  `);
 
-await db.exec(`
-  CREATE TABLE IF NOT EXISTS messages (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    id_user INTEGER,
-    client_offset TEXT UNIQUE,
-    content TEXT,
-    FOREIGN KEY (id_user) REFERENCES users(id)
-  );
-`);
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS messages (
+        id SERIAL PRIMARY KEY,
+        id_user INTEGER,
+        client_offset TEXT UNIQUE,
+        content TEXT,
+        FOREIGN KEY (id_user) REFERENCES users(id)
+  `);
+};
+
+await setupDatabase();
 
 const app = express();
 const server = createServer(app);
@@ -50,8 +53,11 @@ app.post("/register", async (req, res) => {
   if (!name) {
     return res.status(400).send("Name is required");
   }
-  const result = await db.run("INSERT INTO users (name) VALUES (?)", name);
-  return res.status(201).json({ id: result.lastID, name });
+  const result = await db.query(
+    "INSERT INTO users (name) VALUES ($1) RETURNING id",
+    [name]
+  );
+  return res.status(201).json({ id: result.rows[0].id, name });
 });
 
 io.emit("hello", "world");
@@ -60,39 +66,45 @@ io.on("connection", async (socket) => {
   socket.on("chat message", async (msg, userId) => {
     let result;
     try {
-      result = await db.run(
-        "INSERT INTO messages (content, id_user) VALUES (?, ?)",
-        msg,
-        userId
+      result = await db.query(
+        "INSERT INTO messages (content, id_user) VALUES ($1, $2) RETURNING id",
+        [msg, userId]
       );
     } catch (e) {
       console.error("failed to store message", e);
       return;
     }
-    const row = await db.get(
+    const newId = result.rows[0].id;
+
+    const selectResult = await db.query(
       `SELECT messages.id, messages.content, users.name 
    FROM messages 
    JOIN users ON users.id = messages.id_user 
-   WHERE messages.id = ?`,
-      result.lastID
+   WHERE messages.id = $1`,
+      [newId]
     );
+
+    const row = selectResult.rows[0];
 
     io.emit("chat message", row.content, row.name, row.id);
   });
 
   if (!socket.recovered) {
     try {
-      await db.each(
+      const result = await db.query(
         `SELECT messages.id, messages.content, users.name 
-   FROM messages 
-   JOIN users ON users.id = messages.id_user 
-   WHERE messages.id > ?`,
-        [socket.handshake.auth.serverOffset || 0],
-        (_err, row) => {
-          socket.emit("chat message", row.content, row.name, row.id);
-        }
+         FROM messages 
+         JOIN users ON users.id = messages.id_user 
+         WHERE messages.id > $1`,
+        [socket.handshake.auth.serverOffset || 0]
       );
-    } catch (e) {}
+
+      for (const row of result.rows) {
+        socket.emit("chat message", row.content, row.name, row.id);
+      }
+    } catch (e) {
+      console.error("Falha ao recuperar mensagens:", e);
+    }
   }
 });
 
