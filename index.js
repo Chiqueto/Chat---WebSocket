@@ -10,7 +10,7 @@ import pg from "pg";
 
 dotenv.config();
 
-const db = await pg.Pool({
+const db = new pg.Pool({
   connectionString: process.env.DATABASE_URL,
 });
 
@@ -19,7 +19,7 @@ const setupDatabase = async () => {
     CREATE TABLE IF NOT EXISTS users (
           id SERIAL PRIMARY KEY,
           name TEXT
-    );
+    )
   `);
 
   await db.query(`
@@ -29,6 +29,7 @@ const setupDatabase = async () => {
         client_offset TEXT UNIQUE,
         content TEXT,
         FOREIGN KEY (id_user) REFERENCES users(id)
+        )
   `);
 };
 
