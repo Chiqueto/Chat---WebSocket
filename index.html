@@ -105,35 +105,6 @@
       #messages > li:nth-child(odd) {
         background: #efefef;
       }
-
-      @keyframes spin {
-        to {
-          transform: rotate(360deg);
-        }
-      }
-
-      .userModal button.loading {
-        color: transparent;
-        position: relative;
-        cursor: wait;
-      }
-
-      .userModal button.loading::after {
-        content: "";
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        margin-top: -12px;
-        margin-left: -12px;
-
-        width: 24px;
-        height: 24px;
-        border: 3px solid rgba(255, 255, 255, 0.5);
-        border-top-color: #fff;
-        border-radius: 50%;
-
-        animation: spin 0.8s linear infinite;
-      }
     </style>
   </head>
   <body>
@@ -170,9 +141,8 @@
       userModal.addEventListener("submit", (e) => {
         e.preventDefault();
         if (usernameInput.value) {
-         
-          submitButton.disabled = true; 
-          submitButton.classList.add("loading"); 
+          submitButton.disabled = true;
+          submitButton.classList.add("loading");
 
           fetch("/register", {
             method: "POST",
@@ -187,14 +157,15 @@
                 localStorage.setItem("user", data.id);
                 localStorage.setItem("username", usernameInput.value);
                 userModal.style.display = "none";
+
                 socket.connect();
               }
             })
             .catch((error) => console.error("Erro ao registrar:", error))
-            
+
             .finally(() => {
-              submitButton.disabled = false; 
-              submitButton.classList.remove("loading"); 
+              submitButton.disabled = false;
+              submitButton.classList.remove("loading");
             });
         }
       });
